@@ -13,7 +13,7 @@
 from __future__ import absolute_import
 
 import bson
-from mongokit import Connection, Database, Collection, Document
+from mongokit import ReplicaSetConnection, Database, Collection, Document
 from flask import abort
 from werkzeug.routing import BaseConverter
 
@@ -81,12 +81,12 @@ class MongoKit(object):
     .. _MongoKit: http://namlook.github.com/mongokit/
     """
 
-    def __init__(self, app=None):
+    def __init__(self, app=None, **kwargs):
         #: :class:`list` of :class:`mongokit.Document`
         #: which will be automated registed at connection
         self.registered_documents = []
         self.mongokit_connection = None
-
+        self.connection_config = kwargs
         if app is not None:
             self.app = app
             self.init_app(self.app)
@@ -162,15 +162,10 @@ class MongoKit(object):
         ``MONGODB_PASSWORD`` then you will be authenticated at the
         ``MONGODB_DATABASE``.
         """
-        self.mongokit_connection = Connection(
-            host=self.app.config.get('MONGODB_HOST'),
-            port=self.app.config.get('MONGODB_PORT'),
-            max_pool_size=self.app.config.get('MONGODB_MAX_POOL_SIZE'),
-            slave_okay=self.app.config.get('MONGODB_SLAVE_OKAY')
-        )
+        db_name = self.connection_config.pop("db_name")
+        self.mongokit_connection = ReplicaSetConnection(**self.connection_config)
         self.mongokit_connection.register(self.registered_documents)
-        self.mongokit_db = Database(self.mongokit_connection,
-                                   self.app.config.get('MONGODB_DATABASE'))
+        self.mongokit_db = Database(self.mongokit_connection, db_name)
         if self.app.config.get('MONGODB_USERNAME') is not None:
             self.mongokit_db.authenticate(
                 self.app.config.get('MONGODB_USERNAME'),
